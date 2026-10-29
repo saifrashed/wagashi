@@ -1,5 +1,5 @@
 'use strict';
-/* Atorasu – diagram layout and rendering (plain DOM + SVG, no dependencies). */
+/* Wagashi – diagram layout and rendering (plain DOM + SVG, no dependencies). */
 class Diagram {
   constructor({ viewport, stage, nodesEl, linesEl }) {
     this.viewport = viewport;

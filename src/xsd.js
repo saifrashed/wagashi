@@ -1,5 +1,5 @@
 'use strict';
-/* Atorasu – XSD model. Parses XSD files into a lazily-built node tree. No dependencies. */
+/* Wagashi – XSD model. Parses XSD files into a lazily-built node tree. No dependencies. */
 const XSD_NS = 'http://www.w3.org/2001/XMLSchema';
 
 const Xsd = (() => {
@@ -27,25 +27,34 @@ const Xsd = (() => {
       this.attributeGroups = new Map();
       this.attributes = new Map();
       this.files = [];
+      this.docs = [];
+      this.decls = new Map();
       this.errors = [];
       this.unresolved = new Set();
     }
   }
 
-  function load(files) {
-    const reg = new Registry();
+  function register(reg) {
     const maps = {
       element: reg.elements, complexType: reg.complexTypes, simpleType: reg.simpleTypes,
       group: reg.groups, attributeGroup: reg.attributeGroups, attribute: reg.attributes,
     };
-    const register = (parent, file, ns) => {
+    const walk = (parent, file, ns) => {
       for (const c of kids(parent)) {
-        if (c.localName === 'redefine') { register(c, file, ns); continue; }
+        if (c.localName === 'redefine') { walk(c, file, ns); continue; }
         const map = maps[c.localName];
         const name = c.getAttribute('name');
         if (map && name && !map.has(name)) map.set(name, { el: c, file, ns });
       }
     };
+    for (const { name, doc } of reg.docs) {
+      reg.files.push(name);
+      walk(doc.documentElement, name, doc.documentElement.getAttribute('targetNamespace') || '');
+    }
+  }
+
+  function load(files) {
+    const reg = new Registry();
     for (const f of files) {
       const doc = new DOMParser().parseFromString(f.text, 'application/xml');
       const perr = doc.getElementsByTagName('parsererror')[0];
@@ -55,10 +64,31 @@ const Xsd = (() => {
         reg.errors.push(`${f.name}: not an XML Schema (root element is <${root.nodeName}>)`);
         continue;
       }
-      reg.files.push(f.name);
-      register(root, f.name, root.getAttribute('targetNamespace') || '');
+      reg.docs.push({ name: f.name, doc });
+      const m = /^\uFEFF?\s*(<\?xml[^>]*\?>)/.exec(f.text);
+      reg.decls.set(f.name, m ? m[1] : '');
     }
+    register(reg);
     return reg;
+  }
+
+  // Fresh registry over the same (possibly edited) documents.
+  function rebuild(old) {
+    const reg = new Registry();
+    reg.docs = old.docs;
+    reg.decls = old.decls;
+    reg.errors = old.errors;
+    register(reg);
+    return reg;
+  }
+
+  function serialize(reg) {
+    const ser = new XMLSerializer();
+    return reg.docs.map(({ name, doc }) => {
+      const decl = (reg.decls.get(name) || '<?xml version="1.0" encoding="UTF-8"?>')
+        .replace(/encoding\s*=\s*(["'])[^"']*\1/, 'encoding="UTF-8"');
+      return { name, text: `${decl}\n${ser.serializeToString(doc).replace(/^<\?xml[^>]*\?>\s*/, '')}\n` };
+    });
   }
 
   function resolveType(reg, el, q) {
@@ -230,7 +260,7 @@ const Xsd = (() => {
       doc: docOf(el) || (decl !== el ? docOf(decl) : ''),
       def: decl.getAttribute('default'),
       fixed: decl.getAttribute('fixed'),
-      file: from.file, ns: from.ns,
+      file: from.file, ns: from.ns, el, decl, useEl: el,
     });
     const t = decl.getAttribute('type');
     const inline = kids(decl, 'simpleType')[0];
@@ -269,7 +299,7 @@ const Xsd = (() => {
       case 'sequence': case 'choice': case 'all':
         return [new Node(c.localName, {
           min: occurs(c, 'minOccurs', 1), max: occurs(c, 'maxOccurs', 1), doc: docOf(c),
-          file: src.file, ns: src.ns,
+          file: src.file, ns: src.ns, el: c, useEl: c,
           build: () => kids(c).flatMap(x => particle(reg, x, src)),
         })];
       case 'group': {
@@ -282,6 +312,7 @@ const Xsd = (() => {
         nodes[0].min = occurs(c, 'minOccurs', 1);
         nodes[0].max = occurs(c, 'maxOccurs', 1);
         nodes[0].groupName = local(q);
+        nodes[0].useEl = c;
         nodes[0].doc = nodes[0].doc || docOf(d.el);
         return nodes;
       }
@@ -290,7 +321,7 @@ const Xsd = (() => {
           name: 'any', min: occurs(c, 'minOccurs', 1), max: occurs(c, 'maxOccurs', 1),
           anyNs: c.getAttribute('namespace') || '##any', process: c.getAttribute('processContents') || 'strict',
           doc: docOf(c), typeText: `wildcard (${c.getAttribute('namespace') || '##any'})`,
-          file: src.file, ns: src.ns,
+          file: src.file, ns: src.ns, el: c, useEl: c,
         })];
       default: return [];
     }
@@ -365,7 +396,7 @@ const Xsd = (() => {
       name: refQ ? local(refQ) : el.getAttribute('name'),
       min: occurs(el, 'minOccurs', 1), max: occurs(el, 'maxOccurs', 1),
       doc: docOf(el) || (decl && decl !== el ? docOf(decl) : ''),
-      file: from.file, ns: from.ns, isRef: !!refQ,
+      file: from.file, ns: from.ns, isRef: !!refQ, el: decl, decl, useEl: el,
       nillable: !!decl && decl.getAttribute('nillable') === 'true',
       abstract: !!decl && decl.getAttribute('abstract') === 'true',
       def: decl && decl.getAttribute('default'),
@@ -451,5 +482,8 @@ const Xsd = (() => {
     return { nodes: out, truncated };
   }
 
-  return { load, makeRoot, guessRoot, roots, flatten, facetSummary, cardinality };
+  return {
+    load, rebuild, serialize, makeRoot, guessRoot, roots, flatten, facetSummary, cardinality,
+    util: { kids, local, docOf, clean },
+  };
 })();

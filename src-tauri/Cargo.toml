@@ -1,7 +1,7 @@
 [package]
-name = "atorasu"
+name = "wagashi"
 version = "1.0.0"
-description = "Atorasu – offline XML Schema (XSD) viewer"
+description = "Wagashi – offline XML Schema (XSD) viewer"
 edition = "2021"
 
 [build-dependencies]
@@ -9,6 +9,8 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
 
 [profile.release]
 opt-level = "s"

@@ -3,14 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Atorasu – XML Schema Viewer</title>
+<title>Wagashi – XML Schema Viewer</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header id="toolbar">
-  <span class="brand">Atorasu</span>
+  <span class="brand">Wagashi<span id="dirty" title="Unsaved changes" hidden> ●</span></span>
   <button id="btn-open" title="Open one or more .xsd files">Open…</button>
   <button id="btn-folder" title="Open all .xsd files in a folder">Folder…</button>
+  <button id="btn-new" title="Start a new, empty schema">New</button>
   <button id="btn-sample" title="Load a sample schema">Sample</button>
   <select id="root-select" title="Root element" disabled></select>
   <label><input type="checkbox" id="chk-ann" checked> Annotations</label>
@@ -20,6 +21,9 @@
   <button id="btn-search" disabled>SEARCH</button>
   <button id="btn-reset" disabled>RESET</button>
   <span class="spacer"></span>
+  <button id="btn-undo" title="Undo (Ctrl/Cmd+Z)" disabled>Undo</button>
+  <button id="btn-redo" title="Redo (Ctrl/Cmd+Shift+Z)" disabled>Redo</button>
+  <button id="btn-export" title="Export the edited schema (Ctrl/Cmd+S)" disabled>Export</button>
   <button id="btn-expand" title="Expand all (up to a safe limit)" disabled>Expand</button>
   <button id="btn-collapse" title="Collapse all" disabled>Collapse</button>
   <button id="btn-zoom-out" title="Zoom out">−</button>
@@ -31,10 +35,10 @@
   <div id="viewport" tabindex="0">
     <div id="stage"><svg id="lines" xmlns="http://www.w3.org/2000/svg"></svg><div id="nodes"></div></div>
     <div id="welcome">
-      <h1>Atorasu</h1>
+      <h1>Wagashi</h1>
       <p>Drop one or more <b>.xsd</b> files here, or use <b>Open…</b> / <b>Folder…</b>.</p>
       <p>Schemas that include or import each other should be opened together.</p>
-      <p><button id="btn-sample2">Load sample schema</button></p>
+      <p><button id="btn-new2">New schema</button> <button id="btn-sample2">Load sample schema</button></p>
       <p class="muted">Everything runs locally. No network access is used.</p>
     </div>
   </div>
@@ -43,9 +47,11 @@
 <footer id="status">Ready</footer>
 <input type="file" id="file-input" accept=".xsd,.xml,text/xml,application/xml" multiple hidden>
 <input type="file" id="folder-input" webkitdirectory multiple hidden>
+<div id="modal" hidden></div>
 <div id="dropzone" hidden>Drop XSD files to open</div>
 <script src="sample.js"></script>
 <script src="xsd.js"></script>
+<script src="edit.js"></script>
 <script src="view.js"></script>
 <script src="app.js"></script>
 </body>
