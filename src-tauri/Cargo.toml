@@ -1,0 +1,18 @@
+[package]
+name = "atorasu"
+version = "1.0.0"
+description = "Atorasu – offline XML Schema (XSD) viewer"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
